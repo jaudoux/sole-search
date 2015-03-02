@@ -44,7 +44,7 @@ my ($filtered) = filter ("tempbin_$background\_test_temp", $duplicated);
 get_peaks ($filtered, $frag2, $spacing2, "tempbin_$background\_peaks2.gff", $average);
 
 # call narrow duplication events 
-system ("perl rid_bgPeaks.pl tempbin_$background\_peaks2.gff tempbin_$background\_test >temp2_$background\_smear.sgr");
+system ("rid_bgPeaks.pl tempbin_$background\_peaks2.gff tempbin_$background\_test >temp2_$background\_smear.sgr");
 $peak_co = file_count ("temp2_$background\_smear.sgr", "temp2_$background\_smear.sgr");
 $average = $bave/$peak_co;
 my $non_unique = 4*($average);

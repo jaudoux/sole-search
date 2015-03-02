@@ -96,7 +96,7 @@ system ("rm $background2\_count");
 
 while ($run){
     if ($run eq 1){ # change to file with common peak regions removed
-	system ("perl rid_bgPeaks.pl $name\_signifpeaks.gff $name >temp_num_$name");
+	system ("rid_bgPeaks.pl $name\_signifpeaks.gff $name >temp_num_$name");
 	$tag_count = file_count ("temp_num_$name", "temp_num_$name");
 	system ("rm temp_num_$name");
 	$co -= 2;
