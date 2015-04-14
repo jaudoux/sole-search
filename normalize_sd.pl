@@ -1,9 +1,11 @@
 #!/usr/bin/perl
 use strict; 
 use warnings;
-use Getopt::Std;
-use vars qw($opt_a);
-getopts('a:');
+
+use CracTools::Utils;
+use Getopt::Long;
+use File::Temp;
+use Pod::Usage;
 
 my $length = 150;
 my $frag1 = 2000;
@@ -11,21 +13,73 @@ my $frag2 = 10000;
 my $spacing1 = 2000;
 my $spacing2 = 20000;
 my $alpha = 0.001;
+my $frag_length = 200;
 
-die "
+=head1 SYNOPSIS
+
 Enter an input file to get its common peaks
-options:
--a alpha value. options: 0.1, 0.05, 0.01, 0.001, 0.0001
- 
-" unless ($ARGV[0]);
+  
+  normalize_sd.pl file.bam [-a 0.1] [--frag-length 200]
+  
+  or
 
-if ($opt_a){
-    $alpha = $opt_a;
+  normalize_sd.pl eland-mapping.txt -f eland [-a 0.1]
+
+=head1 OPTIONS
+
+  --format        sam or eland
+  --alpha         alpha value. options: 0.1, 0.05, 0.01, 0.001, 0.0001     
+  --frag-length   fragment length to use
+
+=cut
+
+my $format = "bam";
+
+GetOptions(
+  "f|format=s" => \$format,
+  "a|alpha=f"  => \$alpha,
+  "frag_length=i" => \$frag_length,
+) or pod2usage(-verbose => 1);
+
+my $input_file = shift @ARGV;
+
+pod2usage(-verbose => 1) unless defined $input_file;
+
+my $background = new File::Temp();
+
+my $in_it;
+if($format =~ /bam/i) {
+  $in_it = CracTools::Utils::bamFileIterator($input_file);
+} elsif($format =~ /eland/i) {
+  # TODO File must be sorted
+  $in_it = CracTools::Utils::getFileIterator(file => $input_file,
+    parsing_method => \&parseElandLine,
+  );
+} else {
+  # TODO add file iterator for eland
+  die "Unknown file format ($format)";
 }
 
+while(my $line = $in_it->()) {
+  my($chr,$start,$end);
+  if($format =~ /bam/i) {
+    my $sam_line = CracTools::Utils::parseSAMLineLite($line);
+    $chr = $sam_line->{rname};
+    $start = $sam_line->{pos};
+    #$end = $sam_line->{pos} + length($sam_line->{seq});
+    $end = $start + $frag_length;
+  } elsif($format =~ /eland/i) {
+    # TODO do the R and F as in parse_export.sh
+    $chr = $line->{chr};
+    $start = $line->{start};
+    $end = $line->{end};
+  }
+  print $background join("\t",$chr,$start,$end),"\n";
+}
+close $background;
+
 ###Part 1: bin input into 200bp bins and print raw data for user visualization
-my $background = $ARGV[0];
-binning ($background, "tempbin_$background\_test", "200");
+binning ($background, "tempbin_$background\_test", $frag_length);
 
 ###Part 2: Determine Duplication and deletion events
 my ($bave) = duplifind ("tempbin_$background\_test", "20"); #blurs binned data by 20 bins and produces tempbin_$background\_test_temp file
@@ -373,7 +427,7 @@ sub reverse_filter {
 
 sub binning {
     my ($infile, $filename, $bin) = @_;
-
+ 
     open (SORT, $infile);
     my $chromb = "chr";
     my $blocks = 0;
@@ -386,10 +440,10 @@ sub binning {
     open (OF2, ">$filename");
 
     while (<SORT>){
-        my (@sorted) = split;
-        my $chromo = $sorted[0];
-        my $start = $sorted[1];
-        my $end = $sorted[2];
+      my (@sorted) = split;
+      my $chromo = $sorted[0];
+      my $start = $sorted[1];
+      my $end = $sorted[2];
 
                         #if just starting, initiate bin
         unless ($tag) {
@@ -488,3 +542,7 @@ sub get_peaks {
     return ($pcount, $tagcount);
 }
 
+sub parseElandLine {
+  my $line = shift;
+  return {};
+}
